@@ -1,0 +1,32 @@
+[package]
+name = "collection-bench"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+criterion = {version = "0.4.0", features = ["html_reports"]}
+itertools = "0.10.5"
+rand = "0.8.5"
+
+[[bin]]
+name = "my-binary"
+path = "src/main.rs"
+bench = false
+
+[[bench]]
+name = "sort_and_dedup_trivial"
+harness = false
+
+[[bench]]
+name = "dedup_trivial"
+harness = false
+
+[[bench]]
+name = "group_by_trivial"
+harness = false
+
+[[bench]]
+name = "contains_trivial"
+harness = false
