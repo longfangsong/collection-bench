@@ -20,7 +20,15 @@ name = "sort_and_dedup_trivial"
 harness = false
 
 [[bench]]
+name = "sort_and_dedup_string"
+harness = false
+
+[[bench]]
 name = "dedup_trivial"
+harness = false
+
+[[bench]]
+name = "dedup_string"
 harness = false
 
 [[bench]]
@@ -28,5 +36,13 @@ name = "group_by_trivial"
 harness = false
 
 [[bench]]
+name = "group_by_string"
+harness = false
+
+[[bench]]
 name = "contains_trivial"
+harness = false
+
+[[bench]]
+name = "contains_string"
 harness = false

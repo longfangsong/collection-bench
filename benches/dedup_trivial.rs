@@ -5,6 +5,7 @@ use std::{
 };
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use itertools::Itertools;
 use rand::{rngs::StdRng, Rng, RngCore, SeedableRng};
 
 fn vec_sort(source: &[u64]) -> Vec<u64> {
@@ -22,35 +23,41 @@ fn hashset_auto(source: &[u64]) -> HashSet<u64> {
     source.iter().cloned().collect()
 }
 
-fn bench_sort_with_dedup(c: &mut Criterion) {
-    let mut group = c.benchmark_group("sort_and_dedup");
-        group
+fn bench_dedup_trivial(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dedup_trivial");
+    group
         .sample_size(20)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(1));
     let mut rng = StdRng::from_seed(b"42424242424242424242424242424242".clone());
-    for item_count in [0u64, 1, 32, 128, 2048, 0x80000].into_iter() {
-        for ratio in [0u64, 1, 2, 10, 1000] {
-            let source: Vec<_> = if ratio != 0 {
-                (0..item_count)
-                    .map(|_| rng.gen_range(0..(item_count * ratio)))
-                    .collect()
-            } else {
-                let n = rng.next_u64();
-                iter::once(n).cycle().take(item_count as _).collect()
-            };
+    for item_count in [1, 32, 128, 2048].into_iter() {
+        let items = (0..item_count).map(|_| rng.next_u64()).collect_vec();
+        for dup_probability in [0, 10, 50, 90, 100, 200, 1000] {
+            let mut source = Vec::new();
+            for item in items.iter() {
+                source.push(*item);
+                if dup_probability < 100 {
+                    if rng.gen_ratio(dup_probability, 100) {
+                        source.push(*item);
+                    }
+                } else {
+                    for _ in 0..(dup_probability / 100) {
+                        source.push(*item);
+                    }
+                }
+            }
             group.bench_with_input(
-                BenchmarkId::new("Vec + sort", format!("{},{}", item_count, ratio)),
+                BenchmarkId::new("Vec+sort", format!("{},{}%", item_count, dup_probability)),
                 &source,
                 |b, source| b.iter(|| vec_sort(&source)),
             );
             group.bench_with_input(
-                BenchmarkId::new("BTreeSet", format!("{},{}", item_count, ratio)),
+                BenchmarkId::new("BTreeSet", format!("{},{}%", item_count, dup_probability)),
                 &source,
                 |b, source| b.iter(|| btreeset_auto(&source)),
             );
             group.bench_with_input(
-                BenchmarkId::new("HashSet", format!("{},{}", item_count, ratio)),
+                BenchmarkId::new("HashSet", format!("{},{}%", item_count, dup_probability)),
                 &source,
                 |b, source| b.iter(|| hashset_auto(&source)),
             );
@@ -59,5 +66,5 @@ fn bench_sort_with_dedup(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_sort_with_dedup);
+criterion_group!(benches, bench_dedup_trivial);
 criterion_main!(benches);

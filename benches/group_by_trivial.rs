@@ -24,14 +24,14 @@ fn hashmap(source: &[(u64, u64)]) -> HashMap<u64, Vec<u64>> {
     result
 }
 
-fn bench_group_by(c: &mut Criterion) {
-    let mut group = c.benchmark_group("group_by");
+fn bench_group_by_trivial(c: &mut Criterion) {
+    let mut group = c.benchmark_group("group_by_trivial");
     group
         .sample_size(20)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(1));
     let mut rng = StdRng::from_seed(b"42424242424242424242424242424242".clone());
-    for key_count in [1, 8, 32, 128, 1024].into_iter() {
+    for key_count in [8, 32, 128, 1024].into_iter() {
         for value_key_ratio in [1, 2, 64] {
             let keys = (0u64..key_count).map(|_| rng.next_u64()).collect_vec();
             let values = (0..(key_count * value_key_ratio))
@@ -45,14 +45,14 @@ fn bench_group_by(c: &mut Criterion) {
             }
             group.bench_with_input(
                 BenchmarkId::new(
-                    "Vec + group_by",
-                    format!("{},{}", key_count, value_key_ratio),
+                    "Vec+group_by",
+                    format!("{},{}v/k", key_count, value_key_ratio),
                 ),
                 &source,
                 |b, source| b.iter(|| vec(source)),
             );
             group.bench_with_input(
-                BenchmarkId::new("Hashmap", format!("{},{}", key_count, value_key_ratio)),
+                BenchmarkId::new("Hashmap", format!("{},{}v/k", key_count, value_key_ratio)),
                 &source,
                 |b, source| b.iter(|| hashmap(source)),
             );
@@ -61,5 +61,5 @@ fn bench_group_by(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_group_by);
+criterion_group!(benches, bench_group_by_trivial);
 criterion_main!(benches);

@@ -6,14 +6,16 @@ use std::{
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use itertools::Itertools;
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, RngCore, SeedableRng};
+use rand::{
+    distributions::Alphanumeric, rngs::StdRng, seq::SliceRandom, Rng, RngCore, SeedableRng,
+};
 
-fn vec(source: &[u64], values: &[u64]) -> Vec<bool> {
+fn vec(source: &[String], values: &[String]) -> Vec<bool> {
     let vec = source.iter().cloned().collect_vec();
     values.iter().map(|it| vec.contains(it)).collect()
 }
 
-fn sorted_vec(source: &[u64], values: &[u64]) -> Vec<bool> {
+fn sorted_vec(source: &[String], values: &[String]) -> Vec<bool> {
     let mut vec = source.iter().cloned().collect_vec();
     vec.sort();
     values
@@ -22,13 +24,13 @@ fn sorted_vec(source: &[u64], values: &[u64]) -> Vec<bool> {
         .collect()
 }
 
-fn hashset(source: &[u64], values: &[u64]) -> Vec<bool> {
+fn hashset(source: &[String], values: &[String]) -> Vec<bool> {
     let set: HashSet<_> = source.iter().cloned().collect();
     values.iter().map(|it| set.contains(it)).collect()
 }
 
-fn bench_contains(c: &mut Criterion) {
-    let mut group = c.benchmark_group("contains_trivial");
+fn bench_contains_string(c: &mut Criterion) {
+    let mut group = c.benchmark_group("contains_string");
     group
         .sample_size(20)
         .warm_up_time(Duration::from_millis(500))
@@ -36,7 +38,13 @@ fn bench_contains(c: &mut Criterion) {
     let mut rng = StdRng::from_seed(b"42424242424242424242424242424242".clone());
     for item_count in [32, 128, 1024].into_iter() {
         let items = (0..item_count)
-            .map(|_| rng.gen_range(0..0x80000000u64))
+            .map(|_| {
+                let len = rng.gen_range(2..32);
+                (&mut rng).sample_iter(&Alphanumeric)
+                    .take(len)
+                    .map(char::from)
+                    .collect::<String>()
+            })
             .collect_vec();
         for search_times in [8, 32, 128] {
             for exist_all_ration in [0.1f64, 0.5, 0.9].into_iter() {
@@ -46,7 +54,13 @@ fn bench_contains(c: &mut Criterion) {
                 }
                 let mut find_items = items.iter().take(exist_count as _).cloned().collect_vec();
                 while find_items.len() < search_times {
-                    find_items.push(rng.gen_range(0x80_000_001u64..0x100_000_000u64));
+                    let len = rng.gen_range(2..32);
+                    find_items.push(
+                        (&mut rng).sample_iter(&Alphanumeric)
+                            .take(len)
+                            .map(char::from)
+                            .collect::<String>(),
+                    );
                 }
                 find_items.shuffle(&mut rng);
                 group.bench_with_input(
@@ -94,5 +108,5 @@ fn bench_contains(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_contains);
+criterion_group!(benches, bench_contains_string);
 criterion_main!(benches);
