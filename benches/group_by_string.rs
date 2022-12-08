@@ -1,16 +1,13 @@
-use std::{
-    collections::{BTreeSet, HashMap, HashSet},
-    iter,
-    time::Duration,
-};
+use std::{collections::HashMap, time::Duration};
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use indexmap::IndexMap;
 use itertools::Itertools;
-use rand::{distributions::Alphanumeric, rngs::StdRng, Rng, RngCore, SeedableRng};
+use rand::{distributions::Alphanumeric, rngs::StdRng, Rng, SeedableRng};
 
 fn vec(source: &[(String, String)]) -> Vec<(String, Vec<String>)> {
     source
-        .into_iter()
+        .iter()
         .group_by(|(it, _)| it)
         .into_iter()
         .map(|(key, group)| {
@@ -24,7 +21,15 @@ fn vec(source: &[(String, String)]) -> Vec<(String, Vec<String>)> {
 
 fn hashmap(source: &[(String, String)]) -> HashMap<String, Vec<String>> {
     let mut result: HashMap<String, Vec<String>> = HashMap::new();
-    for (k, v) in source.into_iter() {
+    for (k, v) in source.iter() {
+        result.entry(k.clone()).or_default().push(v.clone());
+    }
+    result
+}
+
+fn indexmap(source: &[(String, String)]) -> IndexMap<String, Vec<String>> {
+    let mut result: IndexMap<String, Vec<String>> = IndexMap::new();
+    for (k, v) in source.iter() {
         result.entry(k.clone()).or_default().push(v.clone());
     }
     result
@@ -36,7 +41,7 @@ fn bench_group_by_string(c: &mut Criterion) {
         .sample_size(20)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(1));
-    let mut rng = StdRng::from_seed(b"42424242424242424242424242424242".clone());
+    let mut rng = StdRng::from_seed(*b"42424242424242424242424242424242");
     for key_count in [8, 32, 128].into_iter() {
         let keys = (0u64..key_count)
             .map(|_| {
@@ -77,6 +82,11 @@ fn bench_group_by_string(c: &mut Criterion) {
                 BenchmarkId::new("Hashmap", format!("{},{}v/k", key_count, value_key_ratio)),
                 &source,
                 |b, source| b.iter(|| hashmap(source)),
+            );
+            group.bench_with_input(
+                BenchmarkId::new("Indexmap", format!("{},{}v/k", key_count, value_key_ratio)),
+                &source,
+                |b, source| b.iter(|| indexmap(source)),
             );
         }
     }

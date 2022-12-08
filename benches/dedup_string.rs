@@ -1,15 +1,15 @@
 use std::{
     collections::{BTreeSet, HashSet},
-    iter,
     time::Duration,
 };
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use indexmap::IndexSet;
 use itertools::Itertools;
-use rand::{rngs::StdRng, Rng, RngCore, SeedableRng, distributions::Alphanumeric};
+use rand::{distributions::Alphanumeric, rngs::StdRng, Rng, SeedableRng};
 
 fn vec_sort(source: &[String]) -> Vec<String> {
-    let mut result: Vec<_> = source.iter().cloned().collect();
+    let mut result: Vec<_> = source.to_vec();
     result.sort();
     result.dedup();
     result
@@ -23,21 +23,28 @@ fn hashset_auto(source: &[String]) -> HashSet<String> {
     source.iter().cloned().collect()
 }
 
+fn indexset_auto(source: &[String]) -> IndexSet<String> {
+    source.iter().cloned().collect()
+}
+
 fn bench_dedup_string(c: &mut Criterion) {
     let mut group = c.benchmark_group("dedup_string");
-        group
+    group
         .sample_size(20)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(1));
-    let mut rng = StdRng::from_seed(b"42424242424242424242424242424242".clone());
+    let mut rng = StdRng::from_seed(*b"42424242424242424242424242424242");
     for item_count in [1, 32, 128, 2048].into_iter() {
-        let items = (0..item_count).map(|_| {
-            let len = rng.gen_range(2..32);
-            (&mut rng).sample_iter(&Alphanumeric)
+        let items = (0..item_count)
+            .map(|_| {
+                let len = rng.gen_range(2..32);
+                (&mut rng)
+                    .sample_iter(&Alphanumeric)
                     .take(len)
                     .map(char::from)
                     .collect::<String>()
-        }).collect_vec();
+            })
+            .collect_vec();
         for dup_probability in [0, 10, 50, 90, 100, 200, 1000] {
             let mut source = Vec::new();
             for item in items.iter() {
@@ -55,17 +62,22 @@ fn bench_dedup_string(c: &mut Criterion) {
             group.bench_with_input(
                 BenchmarkId::new("Vec+sort", format!("{},{}%", item_count, dup_probability)),
                 &source,
-                |b, source| b.iter(|| vec_sort(&source)),
+                |b, source| b.iter(|| vec_sort(source)),
             );
             group.bench_with_input(
                 BenchmarkId::new("BTreeSet", format!("{},{}%", item_count, dup_probability)),
                 &source,
-                |b, source| b.iter(|| btreeset_auto(&source)),
+                |b, source| b.iter(|| btreeset_auto(source)),
             );
             group.bench_with_input(
                 BenchmarkId::new("HashSet", format!("{},{}%", item_count, dup_probability)),
                 &source,
-                |b, source| b.iter(|| hashset_auto(&source)),
+                |b, source| b.iter(|| hashset_auto(source)),
+            );
+            group.bench_with_input(
+                BenchmarkId::new("IndexSet", format!("{},{}%", item_count, dup_probability)),
+                &source,
+                |b, source| b.iter(|| indexset_auto(source)),
             );
         }
     }

@@ -1,14 +1,9 @@
-use std::{
-    collections::{BTreeSet, HashSet},
-    iter,
-    time::Duration,
-};
+use std::{collections::HashSet, time::Duration};
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use indexmap::IndexSet;
 use itertools::Itertools;
-use rand::{
-    distributions::Alphanumeric, rngs::StdRng, seq::SliceRandom, Rng, RngCore, SeedableRng,
-};
+use rand::{distributions::Alphanumeric, rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 
 fn vec(source: &[String], values: &[String]) -> Vec<bool> {
     let vec = source.iter().cloned().collect_vec();
@@ -29,18 +24,24 @@ fn hashset(source: &[String], values: &[String]) -> Vec<bool> {
     values.iter().map(|it| set.contains(it)).collect()
 }
 
+fn indexset(source: &[String], values: &[String]) -> Vec<bool> {
+    let set: IndexSet<_> = source.iter().cloned().collect();
+    values.iter().map(|it| set.contains(it)).collect()
+}
+
 fn bench_contains_string(c: &mut Criterion) {
     let mut group = c.benchmark_group("contains_string");
     group
         .sample_size(20)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(1));
-    let mut rng = StdRng::from_seed(b"42424242424242424242424242424242".clone());
+    let mut rng = StdRng::from_seed(*b"42424242424242424242424242424242");
     for item_count in [32, 128, 1024].into_iter() {
         let items = (0..item_count)
             .map(|_| {
                 let len = rng.gen_range(2..32);
-                (&mut rng).sample_iter(&Alphanumeric)
+                (&mut rng)
+                    .sample_iter(&Alphanumeric)
                     .take(len)
                     .map(char::from)
                     .collect::<String>()
@@ -56,7 +57,8 @@ fn bench_contains_string(c: &mut Criterion) {
                 while find_items.len() < search_times {
                     let len = rng.gen_range(2..32);
                     find_items.push(
-                        (&mut rng).sample_iter(&Alphanumeric)
+                        (&mut rng)
+                            .sample_iter(&Alphanumeric)
                             .take(len)
                             .map(char::from)
                             .collect::<String>(),
@@ -74,7 +76,7 @@ fn bench_contains_string(c: &mut Criterion) {
                         ),
                     ),
                     &(&items, &find_items),
-                    |b, (items, find_items)| b.iter(|| vec(&items, &find_items)),
+                    |b, (items, find_items)| b.iter(|| vec(items, find_items)),
                 );
                 group.bench_with_input(
                     BenchmarkId::new(
@@ -87,7 +89,7 @@ fn bench_contains_string(c: &mut Criterion) {
                         ),
                     ),
                     &(&items, &find_items),
-                    |b, (items, find_items)| b.iter(|| sorted_vec(&items, &find_items)),
+                    |b, (items, find_items)| b.iter(|| sorted_vec(items, find_items)),
                 );
                 group.bench_with_input(
                     BenchmarkId::new(
@@ -100,7 +102,20 @@ fn bench_contains_string(c: &mut Criterion) {
                         ),
                     ),
                     &(&items, &find_items),
-                    |b, (items, find_items)| b.iter(|| hashset(&items, &find_items)),
+                    |b, (items, find_items)| b.iter(|| hashset(items, find_items)),
+                );
+                group.bench_with_input(
+                    BenchmarkId::new(
+                        "IndexSet",
+                        format!(
+                            "{} times,{} items,{}% found",
+                            search_times,
+                            item_count,
+                            exist_all_ration * 100f64
+                        ),
+                    ),
+                    &(&items, &find_items),
+                    |b, (items, find_items)| b.iter(|| indexset(items, find_items)),
                 );
             }
         }
